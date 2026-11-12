@@ -2,7 +2,7 @@
 
 导入游戏导出的玩家 JSON，一眼看清所有正在进行的升级，以及它们什么时候结束。
 
-纯静态页面，没有后端，没有账号，不发送任何网络请求。数据只留在你自己的浏览器里。
+纯静态页面，没有后端，没有账号。数据默认只留在你自己的浏览器里；只有你主动开启推送时，升级的完成时刻才会发到你自己部署的推送服务。
 
 ![预览](preview.png)
 
@@ -42,6 +42,24 @@
 ## 数据备份
 
 「备份数据」导出全部账号的 JSON。换设备或换浏览器时再读回来即可。
+
+## 到点推送提醒
+
+点右上角铃铛，填入自己的推送服务地址，授权通知即可。之后每次打开页面都会把当前的升级完成时刻同步过去，到点由服务推送到锁屏。
+
+推送服务是一个 Cloudflare Worker，代码在 [`worker.js`](worker.js)，需要自己部署：
+
+1. 登录 Cloudflare 后台，Workers & Pages → KV → Create namespace，名字随意（比如 `SUBS`）
+2. Workers & Pages → Create → Worker，起个名字，进入在线编辑器
+3. 粘贴 `worker.js` 全文，Deploy
+4. Worker 的 Settings → Bindings → 添加 KV Namespace，变量名填 `SUBS`，选第 1 步建的那个
+5. Settings → Variables and Secrets → 添加 Secret，变量名 `VAPID_D`，值是你的 VAPID 私钥
+6. Settings → Triggers → Cron Triggers，添加 `* * * * *`（每分钟）
+7. 把 `https://<worker名>.<账号>.workers.dev` 填进网页的铃铛
+
+私钥由 `worker.js` 顶部的 `VAPID_X` / `VAPID_Y` 对应的密钥对决定，一对密钥只服务一个站点。`/test` 接口可以立刻发一条测试通知。
+
+iOS 需要 16.4 以上，并且必须先「添加到主屏幕」，从主屏幕图标打开才能申请通知权限。
 
 ## 隐私
 

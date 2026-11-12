@@ -257,6 +257,7 @@
     renderTabs();
     renderBoard(acct);
     startTick();
+    syncPush(false);
   }
 
   function renderTabs() {
@@ -556,6 +557,128 @@
     applyTheme(next);
     try { localStorage.setItem('coc_theme', next); } catch (e) {}
   });
+
+  /* ---------- 推送提醒 ---------- */
+
+  var VAPID_PUBLIC = 'BNrhP8Q3U6bft3Hed1Ipi2HoQ8Uu4v0nj81oxo8SNUJbNp_RlKcNMP0jUwSKuHlZ0ArqdAyJJ_SHdjXtvVGn3O0';
+  var PUSH_URL_KEY = 'coc_push_url';
+  var lastSync = 0;
+
+  function pushUrl() {
+    try { return localStorage.getItem(PUSH_URL_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function b64uToU8(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function setBell(on) {
+    var btn = document.getElementById('btn-bell');
+    if (!btn) return;
+    btn.setAttribute('data-on', on ? '1' : '0');
+    btn.title = on ? '提醒已开启' : '开启提醒';
+    btn.setAttribute('aria-label', btn.title);
+  }
+
+  function pushItems() {
+    var acct = current();
+    if (!acct || !acct.items) return [];
+    var now = Math.floor(Date.now() / 1000);
+    return acct.items.filter(function (it) {
+      return it.finish > now;
+    }).map(function (it) {
+      return {
+        id: acct.tag + '-' + it.key,
+        title: it.name + ' 已完成',
+        body: 'Lv.' + it.lvl + ' → Lv.' + (it.lvl + 1),
+        at: it.finish
+      };
+    });
+  }
+
+  function api(path, payload) {
+    var url = pushUrl();
+    if (!url) return Promise.reject(new Error('还没有配置推送地址'));
+    return fetch(url + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) { return res.json(); });
+  }
+
+  function ensureSub() {
+    if (!('serviceWorker' in navigator) || !window.PushManager) {
+      return Promise.reject(new Error('这个浏览器不支持推送'));
+    }
+    return navigator.serviceWorker.register('sw.js').then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub) return sub;
+        return Notification.requestPermission().then(function (perm) {
+          if (perm !== 'granted') throw new Error('没有拿到通知权限');
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64uToU8(VAPID_PUBLIC)
+          });
+        });
+      });
+    });
+  }
+
+  function syncPush(force) {
+    if (!pushUrl() || !('serviceWorker' in navigator)) return;
+    if (!force && Date.now() - lastSync < 60000) return;
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) return null;
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!sub) return null;
+      lastSync = Date.now();
+      return api('/sync', { endpoint: sub.endpoint, items: pushItems() });
+    }).catch(function () {});
+  }
+
+  function enablePush() {
+    var url = pushUrl();
+    if (!url) {
+      var input = prompt('填入推送服务地址（部署 Cloudflare Worker 后得到的网址）');
+      if (!input) return;
+      url = input.trim().replace(/\/+$/, '');
+      if (!/^https:\/\//.test(url)) { alert('地址要以 https:// 开头'); return; }
+      try { localStorage.setItem(PUSH_URL_KEY, url); } catch (e) {}
+    }
+    ensureSub().then(function (sub) {
+      return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
+    }).then(function () {
+      setBell(true);
+      alert('提醒已开启。以后打开这个页面会自动同步升级时间。');
+    }).catch(function (err) {
+      alert('开启失败：' + (err && err.message ? err.message : '未知原因'));
+    });
+  }
+
+  document.getElementById('btn-bell').addEventListener('click', function () {
+    var btn = document.getElementById('btn-bell');
+    if (btn.getAttribute('data-on') === '1') {
+      syncPush(true);
+      alert('已经开始同步了。');
+      return;
+    }
+    enablePush();
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) return null;
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (sub && pushUrl()) { setBell(true); syncPush(false); }
+    }).catch(function () {});
+  }
 
   /* ---------- 启动 ---------- */
 

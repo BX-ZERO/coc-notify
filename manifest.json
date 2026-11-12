@@ -1,0 +1,29 @@
+{
+  "name": "部落升级助手",
+  "short_name": "升级助手",
+  "description": "读取游戏导出的玩家 JSON，列出升级完成时间，到点推送提醒。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f5",
+  "theme_color": "#0488a9",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

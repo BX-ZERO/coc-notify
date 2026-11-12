@@ -445,6 +445,16 @@ button.ghost:hover { color: var(--text); background: var(--th); }
 .themebtn[data-mode="light"]::before { content: '☀'; }
 .themebtn[data-mode="dark"]::before { content: '☾'; }
 
+/* 提醒铃铛 */
+#btn-bell .ic { display: block; }
+#btn-bell .bell-on { display: none; }
+#btn-bell[data-on="1"] .bell-on { display: block; }
+#btn-bell[data-on="1"] .bell-off { display: none; }
+#btn-bell[data-on="1"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ---------- 移动端 ---------- */
 
 @media (max-width: 480px) {
