@@ -524,6 +524,7 @@
   var pushModal = document.getElementById('push-modal');
 
   function openPushModal() {
+    if (!pushModal) return;
     pushModal.hidden = false;
     var box = document.getElementById('push-state');
     box.textContent = '正在读取订阅…';
@@ -534,15 +535,23 @@
     });
   }
 
-  function closePushModal() { pushModal.hidden = true; }
+  function closePushModal() { if (pushModal) pushModal.hidden = true; }
 
-  document.getElementById('btn-push').addEventListener('click', openPushModal);
-  document.getElementById('push-close').addEventListener('click', closePushModal);
-  pushModal.addEventListener('click', function (e) {
-    if (e.target === pushModal) closePushModal();
-  });
+  /* 逐个判空：页面和脚本版本不一致时，不能让一个缺失的元素打断后面所有绑定 */
+  function on(id, fn) {
+    var n = document.getElementById(id);
+    if (n) n.addEventListener('click', fn);
+  }
 
-  document.getElementById('push-sync').addEventListener('click', function () {
+  on('btn-push', openPushModal);
+  on('push-close', closePushModal);
+  if (pushModal) {
+    pushModal.addEventListener('click', function (e) {
+      if (e.target === pushModal) closePushModal();
+    });
+  }
+
+  on('push-sync', function () {
     closePushModal();
     toast('正在同步…');
     var ep = null;
@@ -563,7 +572,7 @@
   });
 
   /* 必须从这次点击的同步栈里发起，权限弹窗才认 */
-  document.getElementById('push-rebuild').addEventListener('click', function () {
+  on('push-rebuild', function () {
     closePushModal();
     enablePush();
   });
