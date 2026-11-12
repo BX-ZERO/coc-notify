@@ -248,6 +248,38 @@ export default {
         }
         return json({ subs, cron, list: out });
       }
+      if (url.searchParams.get('del') === 'k7x2') {
+        const key = url.searchParams.get('key');
+        if (!key) return json({ ok: false, error: 'no key' }, 400);
+        await env.SUBS.delete(key);
+        return json({ ok: true, deleted: key });
+      }
+      if (url.searchParams.get('bare') === 'k7x2') {
+        const key = url.searchParams.get('key');
+        if (!key) return json({ ok: false, error: 'no key' }, 400);
+        const rec = await env.SUBS.get(key, 'json');
+        if (!rec || !rec.sub) return json({ ok: false, error: 'not found' }, 404);
+        try {
+          const auth = await vapidHeader(rec.sub.endpoint, env);
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 8000);
+          let res;
+          try {
+            res = await fetch(rec.sub.endpoint, {
+              method: 'POST',
+              headers: { 'TTL': '600', 'Urgency': 'high', 'Authorization': auth },
+              signal: ctrl.signal,
+            });
+          } finally {
+            clearTimeout(timer);
+          }
+          let text = '';
+          try { text = (await res.text()).slice(0, 300); } catch (e) {}
+          return json({ ok: res.status < 300, status: res.status, detail: text });
+        } catch (e) {
+          return json({ ok: false, status: 599, detail: String(e) });
+        }
+      }
       return json({ ok: true, service: 'coc-notify push', time: Date.now(), subs, cron });
     }
 
