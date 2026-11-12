@@ -331,6 +331,15 @@
     }
   }
 
+  /* 倒计时颜色分档：1 小时内红、1-6 小时黄、6-24 小时蓝、更久黑 */
+  function toneOf(sec) {
+    if (sec <= 0) return 't0';
+    if (sec <= 3600) return 't1';
+    if (sec <= 21600) return 't2';
+    if (sec <= 86400) return 't3';
+    return 't4';
+  }
+
   function cardHtml(item, now) {
     var remain = item.finish - now;
     var cls = 'card';
@@ -342,7 +351,7 @@
       '<span class="card-emoji">' + item.icon + '</span></div>' +
       '<div class="card-main"><div class="card-name">' + escapeHtml(item.name) + '</div>' +
       (lvl ? '<div class="card-lvl">' + lvl + '</div>' : '') + '</div>' +
-      '<div class="card-time"><div class="card-remain" data-finish="' + item.finish + '">' +
+      '<div class="card-time"><div class="card-remain ' + toneOf(remain) + '" data-finish="' + item.finish + '">' +
       remainingText(remain) + '</div><div class="card-when">' + whenText(item.finish) + '</div></div>' +
       '</div>';
   }
@@ -361,7 +370,9 @@
       var nodes = el.board.querySelectorAll('[data-finish]');
       if (!nodes.length) return;
       for (var i = 0; i < nodes.length; i++) {
-        nodes[i].textContent = remainingText(num(nodes[i].getAttribute('data-finish')) - now);
+        var rem = num(nodes[i].getAttribute('data-finish')) - now;
+        nodes[i].textContent = remainingText(rem);
+        nodes[i].className = 'card-remain ' + toneOf(rem);
       }
     }, 1000);
   }
