@@ -123,19 +123,24 @@ async function encryptPayload(sub, payloadObj) {
 }
 
 async function sendPush(sub, data, env) {
-  const body = await encryptPayload(sub, data);
-  const res = await fetch(sub.endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Encoding': 'aes128gcm',
-      'TTL': '86400',
-      'Urgency': 'high',
-      'Authorization': await vapidHeader(sub.endpoint, env),
-    },
-    body,
-  });
-  return res.status;
+  try {
+    const body = await encryptPayload(sub, data);
+    const res = await fetch(sub.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        'TTL': '86400',
+        'Urgency': 'high',
+        'Authorization': await vapidHeader(sub.endpoint, env),
+      },
+      body,
+      signal: AbortSignal.timeout(8000),
+    });
+    return res.status;
+  } catch (e) {
+    return 599;
+  }
 }
 
 function keyOf(endpoint) {
@@ -214,7 +219,7 @@ export default {
         tag: 'test',
         url: '/',
       }, env);
-      return json({ ok: status < 300, status });
+      return json({ ok: status < 300, status, error: status < 300 ? undefined : ('apple status ' + status) });
     }
 
     return json({ ok: false, error: 'not found' }, 404);

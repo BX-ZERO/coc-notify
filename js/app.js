@@ -627,11 +627,22 @@
   function api(path, payload) {
     var url = pushUrl();
     if (!url) return Promise.reject(new Error('还没有配置推送地址'));
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 15000);
     return fetch(url + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (res) { return res.json(); });
+      body: JSON.stringify(payload),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      clearTimeout(timer);
+      return res.json();
+    }).catch(function (err) {
+      clearTimeout(timer);
+      if (err && err.name === 'AbortError') throw new Error('连接超时');
+      if (err instanceof TypeError) throw new Error('连不上服务器');
+      throw err;
+    });
   }
 
   /* 等 Service Worker 真正激活再取订阅，页面刚打开时 getRegistration 常常是空的 */
