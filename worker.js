@@ -135,7 +135,7 @@ async function encryptPayload(sub, payloadObj) {
 
   const rs = new Uint8Array(4);
   new DataView(rs.buffer).setUint32(0, 4096);
-  const header = concat(salt, rs, new Uint8Array([asPub.length]), asPub);
+  const header = concat(salt, rs, new Uint8Array([uaPub.length]), uaPub);
 
   const plain = concat(enc.encode(JSON.stringify(payloadObj)), new Uint8Array([2]));
   const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
