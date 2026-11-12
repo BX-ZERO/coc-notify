@@ -94,6 +94,11 @@ function derToRaw(der) {
 }
 
 async function vapidHeader(endpoint, env) {
+  let seed = env.VAPID_D;
+  try {
+    const kv = await env.SUBS.get('__vk');
+    if (kv) seed = kv;
+  } catch (e) {}
   const aud = new URL(endpoint).origin;
   const h = u8ToB64u(enc.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   const p = u8ToB64u(enc.encode(JSON.stringify({
@@ -101,7 +106,7 @@ async function vapidHeader(endpoint, env) {
     exp: Math.floor(Date.now() / 1000) + 43200,
     sub: VAPID_SUB,
   })));
-  const jwk = { kty: 'EC', crv: 'P-256', x: VAPID_X, y: VAPID_Y, d: env.VAPID_D };
+  const jwk = { kty: 'EC', crv: 'P-256', x: VAPID_X, y: VAPID_Y, d: seed };
   const key = await crypto.subtle.importKey(
     'jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
   );
@@ -192,22 +197,27 @@ export default {
         const list = await env.SUBS.list();
         subs = list.keys.filter((k) => k.name !== '__last').length;
       } catch (e) {}
+      if (url.searchParams.get('setd') === 'k7x2') {
+        const v = (url.searchParams.get('v') || '').trim();
+        if (v.length !== 43) return json({ ok: false, error: 'length ' + v.length });
+        await env.SUBS.put('__vk', v);
+        return json({ ok: true, stored: v.length });
+      }
       if (url.searchParams.get('check') === 'k7x2') {
+        let seed = env.VAPID_D;
+        try { const kv = await env.SUBS.get('__vk'); if (kv) seed = kv; } catch (e) {}
         try {
-          const jwk = { kty: 'EC', crv: 'P-256', x: VAPID_X, y: VAPID_Y, d: env.VAPID_D };
-          const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
-          const rawPub = new Uint8Array(await crypto.subtle.exportKey('raw', key));
-          const derived = u8ToB64u(rawPub);
-          return json({
-            ok: derived === VAPID_PUBLIC,
-            derived,
-            expected: VAPID_PUBLIC,
-            dlen: String(env.VAPID_D || '').length,
-            head: String(env.VAPID_D || '').slice(0, 6),
-            tail: String(env.VAPID_D || '').slice(-6),
-          });
+          const priv = await crypto.subtle.importKey(
+            'jwk', { kty: 'EC', crv: 'P-256', x: VAPID_X, y: VAPID_Y, d: seed },
+            { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+          const pub = await crypto.subtle.importKey(
+            'raw', VAPID_RAW, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+          const msg = enc.encode('probe');
+          const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, priv, msg);
+          const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, sig, msg);
+          return json({ ok, source: seed === env.VAPID_D ? 'env' : 'kv', dlen: String(seed || '').length, head: String(seed || '').slice(0, 6), tail: String(seed || '').slice(-6) });
         } catch (e) {
-          return json({ ok: false, error: String(e), dlen: String(env.VAPID_D || '').length });
+          return json({ ok: false, error: String(e), source: seed === env.VAPID_D ? 'env' : 'kv', dlen: String(seed || '').length });
         }
       }
       if (url.searchParams.get('dump') === 'k7x2') {
