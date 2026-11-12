@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f5">
+<meta name="description" content="导入游戏导出的玩家 JSON，看清所有升级什么时候结束，一键导出日历提醒。纯静态，不联网。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="升级助手">
+<title>部落升级助手</title>
+<script>
+(function () {
+  try {
+    var s = localStorage.getItem('coc_theme');
+    var d = s ? s === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="kicker"><span class="sl">Clash of Clans</span><span>升级进度</span></div>
+    <div class="topbar-row">
+      <h1>升级助手<span class="h1en">Upgrade Helper</span></h1>
+      <div class="hacts">
+        <button class="themebtn" id="btn-theme" data-mode="light" aria-label="切换主题"></button>
+        <button class="btn primary sm" id="btn-import">导入</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <main class="content" id="content">
+
+    <div class="empty" id="empty">
+      <div class="empty-icon">📦</div>
+      <p class="empty-title">还没有数据</p>
+      <p class="hint">从游戏查询工具导出玩家 JSON，读剪贴板或选择文件<br>也可以在网址后面加 <code>?demo=1</code> 先看效果</p>
+      <button class="btn primary" id="btn-import-2">导入数据</button>
+    </div>
+
+    <div id="board"></div>
+  </main>
+
+  <footer class="bottombar" id="bottombar" hidden>
+    <button class="btn" id="btn-ics">导出日历</button>
+    <button class="btn" id="btn-backup">备份数据</button>
+  </footer>
+
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <span>导入数据</span>
+      <button class="btn ghost sm" id="modal-close">关闭</button>
+    </div>
+    <textarea id="json-input" spellcheck="false" placeholder="在这里粘贴导出的 JSON"></textarea>
+    <div class="sheet-actions">
+      <button class="btn sm" id="btn-clip">读剪贴板</button>
+      <label class="btn sm" for="file-input">选择文件</label>
+      <input type="file" id="file-input" accept=".json,application/json,text/plain" hidden>
+      <button class="btn primary sm" id="btn-parse">解析</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script src="js/names.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
