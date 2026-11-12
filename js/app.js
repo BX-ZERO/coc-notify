@@ -646,22 +646,22 @@
   }
 
   /* 等 Service Worker 真正激活再取订阅，页面刚打开时 getRegistration 常常是空的 */
-  function currentEndpoint() {
+  function currentSub() {
     if (!('serviceWorker' in navigator)) return Promise.resolve(null);
     return navigator.serviceWorker.ready.then(function (reg) {
       return reg.pushManager.getSubscription();
-    }).then(function (sub) {
-      return sub ? sub.endpoint : null;
-    });
+    }).catch(function () { return null; });
   }
 
+  /* 同步时连订阅的密钥一起上传：设备重装后 endpoint 变了而 KV 里还留着旧密钥，
+     服务器按旧密钥加密，手机解不开，通知会被系统直接丢掉 */
   function syncPush(force) {
     if (!pushUrl()) return Promise.resolve();
     if (!force && Date.now() - lastSync < 60000) return Promise.resolve();
-    return currentEndpoint().then(function (ep) {
-      if (!ep) return null;
+    return currentSub().then(function (sub) {
+      if (!sub) return null;
       lastSync = Date.now();
-      return api('/sync', { endpoint: ep, items: pushItems() });
+      return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
     }).catch(function () {});
   }
 
@@ -729,13 +729,13 @@
     var btn = document.getElementById('btn-bell');
     if (btn.getAttribute('data-on') === '1') {
       toast('正在同步…');
-      currentEndpoint().then(function (ep) {
-        if (!ep) throw new Error('没有找到订阅，请重新开启一次');
+      currentSub().then(function (sub) {
+        if (!sub) throw new Error('没有找到订阅，请长按铃铛重建');
         lastSync = Date.now();
-        return api('/sync', { endpoint: ep, items: pushItems() }).then(function (res) {
+        return api('/sub', { subscription: sub.toJSON(), items: pushItems() }).then(function (res) {
           if (!res || !res.ok) throw new Error((res && res.error) || '同步失败');
           toast('已同步 ' + (res.count || 0) + ' 项，正在发一条测试通知…');
-          return api('/test', { endpoint: ep });
+          return api('/test', { endpoint: sub.endpoint });
         });
       }).then(function () {
         toast('同步完成，测试通知已发出，看锁屏。', 6000);
@@ -748,8 +748,8 @@
   });
 
   if ('serviceWorker' in navigator) {
-    currentEndpoint().then(function (ep) {
-      if (!ep || !pushUrl()) return;
+    currentSub().then(function (sub) {
+      if (!sub || !pushUrl()) return;
       setBell(true);
       syncPush(false);
     }).catch(function () {});
