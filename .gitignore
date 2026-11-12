@@ -10,3 +10,8 @@ _dark.html
 _p2/
 _p3/
 _profile/
+
+# 部署用的本地文件，不进公开仓库
+deploy.js
+wrangler.toml
+

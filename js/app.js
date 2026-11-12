@@ -377,48 +377,6 @@
     }, 1000);
   }
 
-  /* ---------- 导出日历 ---------- */
-
-  function utcString(ts) {
-    var d = new Date(ts * 1000);
-    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
-    return d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + 'T' +
-      p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds()) + 'Z';
-  }
-
-  function icsEscape(s) {
-    return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-  }
-
-  function buildIcs(acct) {
-    var now = Math.floor(Date.now() / 1000);
-    var items = (acct.items || []).filter(function (i) { return i.finish > now; });
-    var out = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//coc-local//upgrade-helper//CN',
-      'CALSCALE:GREGORIAN',
-      'X-WR-CALNAME:部落升级'
-    ];
-    items.forEach(function (i) {
-      var uid = acct.tag.replace(/#/g, '') + '-' + i.key + '-' + i.id + '-' + i.lvl + '@coc-local';
-      out.push('BEGIN:VEVENT');
-      out.push('UID:' + uid);
-      out.push('DTSTAMP:' + utcString(now));
-      out.push('DTSTART:' + utcString(i.finish));
-      out.push('SUMMARY:' + icsEscape(i.name + ' 升至 Lv.' + (i.lvl + 1)));
-      out.push('DESCRIPTION:' + icsEscape(acct.tag + ' / ' + i.label));
-      out.push('BEGIN:VALARM');
-      out.push('TRIGGER:-PT10M');
-      out.push('ACTION:DISPLAY');
-      out.push('DESCRIPTION:' + icsEscape(i.name + ' 即将完成'));
-      out.push('END:VALARM');
-      out.push('END:VEVENT');
-    });
-    out.push('END:VCALENDAR');
-    return out.join('\r\n');
-  }
-
   function download(filename, text, mime) {
     var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
     var url = URL.createObjectURL(blob);
@@ -508,10 +466,8 @@
     render();
   });
 
-  document.getElementById('btn-ics').addEventListener('click', function () {
-    var acct = current();
-    if (!acct) return;
-    download(acct.tag.replace(/#/g, '') + '-升级.ics', buildIcs(acct), 'text/calendar;charset=utf-8');
+  document.getElementById('btn-import-3').addEventListener('click', function () {
+    openModal();
   });
 
   document.getElementById('btn-backup').addEventListener('click', function () {
