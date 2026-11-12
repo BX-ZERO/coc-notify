@@ -78,18 +78,20 @@ function trimLeading(u8) {
 
 function derToRaw(der) {
   const b = new Uint8Array(der);
-  let i = 1;
-  if (b[i] & 0x80) i += 1 + (b[i] & 0x7f);
-  i += 1;
-  i += 1;
-  const rLen = b[i++];
-  const r = trimLeading(b.slice(i, i + rLen));
-  i += rLen + 1;
-  const sLen = b[i++];
-  const s = trimLeading(b.slice(i, i + sLen));
+  if (b.length === 64) return b;
   const out = new Uint8Array(64);
-  out.set(r, 32 - r.length);
-  out.set(s, 64 - s.length);
+  if (b[0] !== 0x30) return out;
+  let i = 2;
+  if (b[1] & 0x80) i = 2 + (b[1] & 0x7f);
+  if (b[i] !== 0x02) return out;
+  const rLen = b[i + 1];
+  const r = trimLeading(b.slice(i + 2, i + 2 + rLen));
+  i = i + 2 + rLen;
+  if (b[i] !== 0x02) return out;
+  const sLen = b[i + 1];
+  const s = trimLeading(b.slice(i + 2, i + 2 + sLen));
+  out.set(r.slice(-32), 0);
+  out.set(s.slice(-32), 32);
   return out;
 }
 
