@@ -370,9 +370,22 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    const now = Math.floor(Date.now() / 1000);
+    const nowMs = Date.now();
+    const now = Math.floor(nowMs / 1000);
     const list = await env.SUBS.list();
-    await env.SUBS.put('__last', JSON.stringify({ at: Date.now(), subs: list.keys.length }));
+
+    // 状态记录每 30 分钟写一次即可，避免吃掉 KV 每日写额度
+    let mark = null;
+    try {
+      mark = await env.SUBS.get('__last', 'json');
+    } catch (e) {
+      mark = null;
+    }
+    if (!mark || nowMs - (mark.at || 0) > 1800000) {
+      const n = list.keys.filter((k) => k.name !== '__last' && k.name !== '__vk').length;
+      await env.SUBS.put('__last', JSON.stringify({ at: nowMs, subs: n }));
+    }
+
     for (const k of list.keys) {
       if (k.name === '__last' || k.name === '__vk') continue;
       const rec = await env.SUBS.get(k.name, 'json');
