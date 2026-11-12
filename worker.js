@@ -147,21 +147,31 @@ async function encryptPayload(sub, payloadObj) {
 async function sendPush(sub, data, env) {
   try {
     const body = await encryptPayload(sub, data);
-    const res = await fetch(sub.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Encoding': 'aes128gcm',
-        'TTL': '86400',
-        'Urgency': 'high',
-        'Authorization': await vapidHeader(sub.endpoint, env),
-      },
-      body,
-      signal: AbortSignal.timeout(8000),
-    });
-    return res.status;
+    const auth = await vapidHeader(sub.endpoint, env);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    let res;
+    try {
+      res = await fetch(sub.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Encoding': 'aes128gcm',
+          'TTL': '86400',
+          'Urgency': 'high',
+          'Authorization': auth,
+        },
+        body,
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    let text = '';
+    try { text = (await res.text()).slice(0, 300); } catch (e) {}
+    return { status: res.status, text };
   } catch (e) {
-    return 599;
+    return { status: 599, text: String(e) };
   }
 }
 
@@ -274,13 +284,13 @@ export default {
       const key = keyOf(endpoint);
       const rec = await env.SUBS.get(key, 'json');
       if (!rec) return json({ ok: false, error: 'not subscribed' }, 404);
-      const status = await sendPush(rec.sub, {
+      const r = await sendPush(rec.sub, {
         title: '推送已就通',
         body: '到点会像这样提醒你。',
         tag: 'test',
         url: '/',
       }, env);
-      return json({ ok: status < 300, status, error: status < 300 ? undefined : ('apple status ' + status) });
+      return json({ ok: r.status < 300, status: r.status, detail: r.text });
     }
 
     return json({ ok: false, error: 'not found' }, 404);
