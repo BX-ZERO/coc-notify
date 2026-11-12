@@ -205,7 +205,7 @@ export default {
       try {
         cron = await env.SUBS.get('__last', 'json');
         const list = await env.SUBS.list();
-        subs = list.keys.filter((k) => k.name !== '__last').length;
+        subs = list.keys.filter((k) => k.name !== '__last' && k.name !== '__vk').length;
       } catch (e) {}
       if (url.searchParams.get('setd') === 'k7x2') {
         const v = (url.searchParams.get('v') || '').trim();
@@ -234,7 +234,7 @@ export default {
         const list = await env.SUBS.list();
         const out = [];
         for (const k of list.keys) {
-          if (k.name === '__last') continue;
+          if (k.name === '__last' || k.name === '__vk') continue;
           const rec = await env.SUBS.get(k.name, 'json');
           out.push({
             key: k.name,
@@ -301,7 +301,7 @@ export default {
     const list = await env.SUBS.list();
     await env.SUBS.put('__last', JSON.stringify({ at: Date.now(), subs: list.keys.length }));
     for (const k of list.keys) {
-      if (k.name === '__last') continue;
+      if (k.name === '__last' || k.name === '__vk') continue;
       const rec = await env.SUBS.get(k.name, 'json');
       if (!rec || !rec.sub || !Array.isArray(rec.items) || !rec.items.length) continue;
 
