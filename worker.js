@@ -175,6 +175,22 @@ export default {
         const list = await env.SUBS.list();
         subs = list.keys.filter((k) => k.name !== '__last').length;
       } catch (e) {}
+      if (url.searchParams.get('dump') === 'k7x2') {
+        const list = await env.SUBS.list();
+        const out = [];
+        for (const k of list.keys) {
+          if (k.name === '__last') continue;
+          const rec = await env.SUBS.get(k.name, 'json');
+          out.push({
+            key: k.name,
+            endpoint: rec && rec.sub ? rec.sub.endpoint : null,
+            updated: rec ? rec.updated : null,
+            items: rec && Array.isArray(rec.items) ? rec.items.length : 0,
+            first: rec && Array.isArray(rec.items) && rec.items.length ? rec.items[0] : null,
+          });
+        }
+        return json({ subs, cron, list: out });
+      }
       return json({ ok: true, service: 'coc-notify push', time: Date.now(), subs, cron });
     }
 
