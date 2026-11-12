@@ -589,6 +589,17 @@
     return out;
   }
 
+  var toastTimer = null;
+
+  function toast(msg, ms) {
+    var t = document.getElementById('toast');
+    if (!t) { alert(msg); return; }
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3200);
+  }
+
   function setBell(on) {
     var btn = document.getElementById('btn-bell');
     if (!btn) return;
@@ -638,12 +649,14 @@
 
   function enablePush() {
     if (!('serviceWorker' in navigator) || !window.PushManager) {
-      alert('这个浏览器不支持推送。iPhone 上要先添加到主屏幕，再从主屏幕图标打开。');
+      toast('这个浏览器不支持推送。iPhone 上要先添加到主屏幕，再从主屏幕图标打开。', 6000);
       return;
     }
     var subRef = null;
+    toast('正在申请通知权限…');
     /* 必须在点击的同步调用栈里申请权限，iOS 只认这一次手势 */
     Notification.requestPermission().then(function (perm) {
+      toast('权限状态：' + perm);
       if (perm !== 'granted') throw new Error('没有拿到通知权限，去 设置 → 通知 里打开');
       return navigator.serviceWorker.register('sw.js');
     }).then(function (reg) {
@@ -656,23 +669,25 @@
       });
     }).then(function (sub) {
       subRef = sub;
+      toast('已拿到订阅，正在上传…');
       return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
     }).then(function (res) {
       if (!res || !res.ok) throw new Error((res && res.error) || '服务端没有接受订阅');
       setBell(true);
       return api('/test', { endpoint: subRef.endpoint });
     }).then(function () {
-      alert('提醒已开启。刚发了一条测试通知，退出去看锁屏。');
+      toast('提醒已开启。刚发了一条测试通知，退出去看锁屏。', 6000);
     }).catch(function (err) {
-      alert('开启失败：' + (err && err.message ? err.message : '未知原因'));
+      toast('开启失败：' + (err && err.message ? err.message : '未知原因'), 8000);
     });
   }
 
   document.getElementById('btn-bell').addEventListener('click', function () {
+    toast('点到了');
     var btn = document.getElementById('btn-bell');
     if (btn.getAttribute('data-on') === '1') {
       syncPush(true);
-      alert('已经开始同步了。');
+      toast('已经开始同步。');
       return;
     }
     enablePush();
