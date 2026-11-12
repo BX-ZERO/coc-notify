@@ -733,9 +733,26 @@
     });
   }
 
+  function checkPushLog() {
+    if (!('caches' in window)) return;
+    caches.open('coc-push-log').then(function (c) {
+      return c.match('/__log');
+    }).then(function (r) {
+      return r ? r.json() : [];
+    }).then(function (arr) {
+      if (!Array.isArray(arr) || !arr.length) return;
+      var last = arr[0];
+      var d = new Date(last.at);
+      var hh = ('0' + d.getHours()).slice(-2);
+      var mm = ('0' + d.getMinutes()).slice(-2);
+      toast('收件记录 ' + arr.length + ' 条 · 最近 ' + hh + ':' + mm + ' · ' + (last.title || '无标题'), 9000);
+    }).catch(function () {});
+  }
+
   /* ---------- 启动 ---------- */
 
   load();
   if (/(^|[?&])demo=1/.test(location.search)) loadDemo();
   render();
+  setTimeout(checkPushLog, 2500);
 })();
