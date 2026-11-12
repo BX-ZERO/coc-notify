@@ -592,12 +592,19 @@
   var toastTimer = null;
 
   function toast(msg, ms) {
-    var t = document.getElementById('toast');
-    if (!t) { alert(msg); return; }
-    t.textContent = msg;
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3200);
+    var box = document.getElementById('toast');
+    if (!box) { alert(msg); return; }
+    var el = document.createElement('div');
+    el.className = 'toast-item';
+    el.textContent = msg;
+    box.appendChild(el);
+    while (box.children.length > 4) box.removeChild(box.firstChild);
+    setTimeout(function () {
+      el.classList.add('out');
+      setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 260);
+    }, ms || 3200);
   }
 
   function setBell(on) {
@@ -738,7 +745,7 @@
     /* 双击：在这一次手势里重建订阅。系统端把旧订阅删了、页面这边还拿着它时，
        只有退订重订才能拿到一条真正有效的通道。权限请求必须紧贴这次点击。 */
     var now = Date.now();
-    if (now - lastBellClick < 420) {
+    if (now - lastBellClick < 900) {
       lastBellClick = 0;
       toast('正在重建订阅…', 4000);
       enablePush();
