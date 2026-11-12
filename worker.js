@@ -117,7 +117,7 @@ async function vapidHeader(endpoint, env) {
   return 'vapid t=' + h + '.' + p + '.' + u8ToB64u(derToRaw(sig)) + ', k=' + VAPID_PUBLIC;
 }
 
-async function encryptPayload(sub, payloadObj) {
+async function encryptPayload(sub, payloadObj, noAad) {
   const uaPub = b64uToU8(sub.keys.p256dh);
   const authSecret = b64uToU8(sub.keys.auth);
 
@@ -140,9 +140,9 @@ async function encryptPayload(sub, payloadObj) {
 
   const plain = concat(enc.encode(JSON.stringify(payloadObj)), new Uint8Array([2]));
   const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
-  const ct = new Uint8Array(await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, additionalData: header }, cekKey, plain,
-  ));
+  const gcm = { name: 'AES-GCM', iv: nonce };
+  if (!noAad) gcm.additionalData = header;
+  const ct = new Uint8Array(await crypto.subtle.encrypt(gcm, cekKey, plain));
 
   return concat(header, ct);
 }
@@ -169,9 +169,9 @@ async function decryptPayload(body, uaPrivate, uaPub, authSecret) {
   return dec.decode(plain.slice(0, -1));
 }
 
-async function sendPush(sub, data, env) {
+async function sendPush(sub, data, env, noAad) {
   try {
-    const body = await encryptPayload(sub, data);
+    const body = await encryptPayload(sub, data, noAad);
     const auth = await vapidHeader(sub.endpoint, env);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -182,6 +182,7 @@ async function sendPush(sub, data, env) {
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Encoding': 'aes128gcm',
+          'Content-Length': String(body.length),
           'TTL': '86400',
           'Urgency': 'high',
           'Authorization': auth,
@@ -363,6 +364,21 @@ export default {
         tag: 'test',
         url: '/',
       }, env);
+      return json({ ok: r.status < 300, status: r.status, detail: r.text });
+    }
+
+    if (path === '/test2') {
+      const { endpoint } = body;
+      if (!endpoint) return json({ ok: false, error: 'no endpoint' }, 400);
+      const key = keyOf(endpoint);
+      const rec = await env.SUBS.get(key, 'json');
+      if (!rec) return json({ ok: false, error: 'not subscribed' }, 404);
+      const r = await sendPush(rec.sub, {
+        title: '变体二',
+        body: '不带 AAD 的加密。',
+        tag: 'test2',
+        url: '/',
+      }, env, true);
       return json({ ok: r.status < 300, status: r.status, detail: r.text });
     }
 
