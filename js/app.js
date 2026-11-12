@@ -731,13 +731,25 @@
     });
   });
 
+  var lastBellClick = 0;
+
   bellBtn.addEventListener('click', function () {
     if (bellLong) { bellLong = false; return; }
+    /* 双击：在这一次手势里重建订阅。系统端把旧订阅删了、页面这边还拿着它时，
+       只有退订重订才能拿到一条真正有效的通道。权限请求必须紧贴这次点击。 */
+    var now = Date.now();
+    if (now - lastBellClick < 420) {
+      lastBellClick = 0;
+      toast('正在重建订阅…', 4000);
+      enablePush();
+      return;
+    }
+    lastBellClick = now;
     var btn = document.getElementById('btn-bell');
     if (btn.getAttribute('data-on') === '1') {
       toast('正在同步…');
       currentSub().then(function (sub) {
-        if (!sub) throw new Error('没有找到订阅，请长按铃铛重建');
+        if (!sub) throw new Error('没有找到订阅，请双击铃铛重建');
         lastSync = Date.now();
         return api('/sub', { subscription: sub.toJSON(), items: pushItems() }).then(function (res) {
           if (!res || !res.ok) throw new Error((res && res.error) || '同步失败');
