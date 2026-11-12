@@ -58,8 +58,24 @@
   <footer class="bottombar" id="bottombar" hidden>
     <button class="btn" id="btn-ics">导出日历</button>
     <button class="btn" id="btn-backup">备份数据</button>
+    <button class="btn" id="btn-push">推送</button>
   </footer>
 
+</div>
+
+<div class="modal" id="push-modal" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <span>推送设置</span>
+      <button class="btn ghost sm" id="push-close">关闭</button>
+    </div>
+    <div class="msg" id="push-state"></div>
+    <div class="sheet-actions">
+      <button class="btn sm" id="push-sync">重新同步</button>
+      <button class="btn primary sm" id="push-rebuild">重建订阅</button>
+    </div>
+    <p class="hint">收不到通知时先点「重新同步」。仍然不行再点「重建订阅」，它会向苹果重新申请一条通道。</p>
+  </div>
 </div>
 
 <div class="modal" id="modal" hidden>

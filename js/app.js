@@ -519,6 +519,55 @@
       JSON.stringify(state, null, 2), 'application/json');
   });
 
+  /* ---------- 推送设置 ---------- */
+
+  var pushModal = document.getElementById('push-modal');
+
+  function openPushModal() {
+    pushModal.hidden = false;
+    var box = document.getElementById('push-state');
+    box.textContent = '正在读取订阅…';
+    currentSub().then(function (sub) {
+      box.textContent = sub
+        ? '已订阅 · 通道尾号 ' + String(sub.endpoint).slice(-10)
+        : '当前没有订阅。点「重建订阅」开启提醒。';
+    });
+  }
+
+  function closePushModal() { pushModal.hidden = true; }
+
+  document.getElementById('btn-push').addEventListener('click', openPushModal);
+  document.getElementById('push-close').addEventListener('click', closePushModal);
+  pushModal.addEventListener('click', function (e) {
+    if (e.target === pushModal) closePushModal();
+  });
+
+  document.getElementById('push-sync').addEventListener('click', function () {
+    closePushModal();
+    toast('正在同步…');
+    var ep = null;
+    currentSub().then(function (sub) {
+      if (!sub) throw new Error('没有订阅，请点重建订阅');
+      ep = sub.endpoint;
+      lastSync = Date.now();
+      return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
+    }).then(function (res) {
+      if (!res || !res.ok) throw new Error((res && res.error) || '同步失败');
+      toast('已同步 ' + (res.count || 0) + ' 项，正在发测试通知…');
+      return api('/test', { endpoint: ep });
+    }).then(function () {
+      toast('测试通知已发出，看锁屏。', 6000);
+    }).catch(function (err) {
+      toast('失败：' + (err && err.message ? err.message : '未知原因'), 8000);
+    });
+  });
+
+  /* 必须从这次点击的同步栈里发起，权限弹窗才认 */
+  document.getElementById('push-rebuild').addEventListener('click', function () {
+    closePushModal();
+    enablePush();
+  });
+
   el.modal.addEventListener('click', function (e) {
     if (e.target === el.modal) closeModal();
   });
