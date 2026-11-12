@@ -561,11 +561,12 @@
   /* ---------- 推送提醒 ---------- */
 
   var VAPID_PUBLIC = 'BNrhP8Q3U6bft3Hed1Ipi2HoQ8Uu4v0nj81oxo8SNUJbNp_RlKcNMP0jUwSKuHlZ0ArqdAyJJ_SHdjXtvVGn3O0';
+  var PUSH_URL_DEFAULT = 'https://coc-notify-push.dosomethingforme.workers.dev';
   var PUSH_URL_KEY = 'coc_push_url';
   var lastSync = 0;
 
   function pushUrl() {
-    try { return localStorage.getItem(PUSH_URL_KEY) || ''; } catch (e) { return ''; }
+    try { return localStorage.getItem(PUSH_URL_KEY) || PUSH_URL_DEFAULT; } catch (e) { return PUSH_URL_DEFAULT; }
   }
 
   function b64uToU8(s) {
@@ -611,24 +612,6 @@
     }).then(function (res) { return res.json(); });
   }
 
-  function ensureSub() {
-    if (!('serviceWorker' in navigator) || !window.PushManager) {
-      return Promise.reject(new Error('这个浏览器不支持推送'));
-    }
-    return navigator.serviceWorker.register('sw.js').then(function (reg) {
-      return reg.pushManager.getSubscription().then(function (sub) {
-        if (sub) return sub;
-        return Notification.requestPermission().then(function (perm) {
-          if (perm !== 'granted') throw new Error('没有拿到通知权限');
-          return reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: b64uToU8(VAPID_PUBLIC)
-          });
-        });
-      });
-    });
-  }
-
   function syncPush(force) {
     if (!pushUrl() || !('serviceWorker' in navigator)) return;
     if (!force && Date.now() - lastSync < 60000) return;
@@ -643,19 +626,32 @@
   }
 
   function enablePush() {
-    var url = pushUrl();
-    if (!url) {
-      var input = prompt('填入推送服务地址（部署 Cloudflare Worker 后得到的网址）');
-      if (!input) return;
-      url = input.trim().replace(/\/+$/, '');
-      if (!/^https:\/\//.test(url)) { alert('地址要以 https:// 开头'); return; }
-      try { localStorage.setItem(PUSH_URL_KEY, url); } catch (e) {}
+    if (!('serviceWorker' in navigator) || !window.PushManager) {
+      alert('这个浏览器不支持推送。iPhone 上要先添加到主屏幕，再从主屏幕图标打开。');
+      return;
     }
-    ensureSub().then(function (sub) {
+    var subRef = null;
+    /* 必须在点击的同步调用栈里申请权限，iOS 只认这一次手势 */
+    Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') throw new Error('没有拿到通知权限，去 设置 → 通知 里打开');
+      return navigator.serviceWorker.register('sw.js');
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub) return sub;
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: b64uToU8(VAPID_PUBLIC)
+        });
+      });
+    }).then(function (sub) {
+      subRef = sub;
       return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
-    }).then(function () {
+    }).then(function (res) {
+      if (!res || !res.ok) throw new Error((res && res.error) || '服务端没有接受订阅');
       setBell(true);
-      alert('提醒已开启。以后打开这个页面会自动同步升级时间。');
+      return api('/test', { endpoint: subRef.endpoint });
+    }).then(function () {
+      alert('提醒已开启。刚发了一条测试通知，退出去看锁屏。');
     }).catch(function (err) {
       alert('开启失败：' + (err && err.message ? err.message : '未知原因'));
     });
