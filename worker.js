@@ -163,7 +163,14 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     if (req.method === 'GET' && path === '/') {
-      return json({ ok: true, service: 'coc-notify push', time: Date.now() });
+      let cron = null;
+      let subs = 0;
+      try {
+        cron = await env.SUBS.get('__last', 'json');
+        const list = await env.SUBS.list();
+        subs = list.keys.filter((k) => k.name !== '__last').length;
+      } catch (e) {}
+      return json({ ok: true, service: 'coc-notify push', time: Date.now(), subs, cron });
     }
 
     if (req.method !== 'POST') return json({ ok: false, error: 'method not allowed' }, 405);
@@ -216,7 +223,9 @@ export default {
   async scheduled(event, env, ctx) {
     const now = Math.floor(Date.now() / 1000);
     const list = await env.SUBS.list();
+    await env.SUBS.put('__last', JSON.stringify({ at: Date.now(), subs: list.keys.length }));
     for (const k of list.keys) {
+      if (k.name === '__last') continue;
       const rec = await env.SUBS.get(k.name, 'json');
       if (!rec || !rec.sub || !Array.isArray(rec.items) || !rec.items.length) continue;
 

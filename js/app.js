@@ -634,16 +634,23 @@
     }).then(function (res) { return res.json(); });
   }
 
-  function syncPush(force) {
-    if (!pushUrl() || !('serviceWorker' in navigator)) return;
-    if (!force && Date.now() - lastSync < 60000) return;
-    navigator.serviceWorker.getRegistration().then(function (reg) {
-      if (!reg) return null;
+  /* 等 Service Worker 真正激活再取订阅，页面刚打开时 getRegistration 常常是空的 */
+  function currentEndpoint() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+    return navigator.serviceWorker.ready.then(function (reg) {
       return reg.pushManager.getSubscription();
     }).then(function (sub) {
-      if (!sub) return null;
+      return sub ? sub.endpoint : null;
+    });
+  }
+
+  function syncPush(force) {
+    if (!pushUrl()) return Promise.resolve();
+    if (!force && Date.now() - lastSync < 60000) return Promise.resolve();
+    return currentEndpoint().then(function (ep) {
+      if (!ep) return null;
       lastSync = Date.now();
-      return api('/sync', { endpoint: sub.endpoint, items: pushItems() });
+      return api('/sync', { endpoint: ep, items: pushItems() });
     }).catch(function () {});
   }
 
@@ -683,23 +690,36 @@
   }
 
   document.getElementById('btn-bell').addEventListener('click', function () {
-    toast('点到了');
     var btn = document.getElementById('btn-bell');
     if (btn.getAttribute('data-on') === '1') {
-      syncPush(true);
-      toast('已经开始同步。');
+      toast('正在同步…');
+      currentEndpoint().then(function (ep) {
+        if (!ep) throw new Error('没有找到订阅，请重新开启一次');
+        lastSync = Date.now();
+        return api('/sync', { endpoint: ep, items: pushItems() }).then(function (res) {
+          if (!res || !res.ok) throw new Error((res && res.error) || '同步失败');
+          toast('已同步 ' + (res.count || 0) + ' 项，正在发一条测试通知…');
+          return api('/test', { endpoint: ep });
+        });
+      }).then(function () {
+        toast('同步完成，测试通知已发出，看锁屏。', 6000);
+      }).catch(function (err) {
+        toast('失败：' + (err && err.message ? err.message : '未知原因'), 8000);
+      });
       return;
     }
     enablePush();
   });
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistration().then(function (reg) {
-      if (!reg) return null;
-      return reg.pushManager.getSubscription();
-    }).then(function (sub) {
-      if (sub && pushUrl()) { setBell(true); syncPush(false); }
+    currentEndpoint().then(function (ep) {
+      if (!ep || !pushUrl()) return;
+      setBell(true);
+      syncPush(false);
     }).catch(function () {});
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') syncPush(false);
+    });
   }
 
   /* ---------- 启动 ---------- */
