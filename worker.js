@@ -10,8 +10,25 @@
  */
 
 const VAPID_PUBLIC = 'BNrhP8Q3U6bft3Hed1Ipi2HoQ8Uu4v0nj81oxo8SNUJbNp_RlKcNMP0jUwSKuHlZ0ArqdAyJJ_SHdjXtvVGn3O0';
-const VAPID_X = '2uE_xDdTpt-3cd53UimLYehDxS7i_SePzWjGjxI1Qls';
-const VAPID_Y = 'Np_RlKcNMP0jUwSKuHlZ0ArqdAyJJ_SHdjXtvVGn3O0';
+/* X / Y 直接从公钥里解出来。手写一个字符不对，苹果就会回 403。 */
+const VAPID_RAW = (function () {
+  const t = VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = t.length % 4 ? 4 - (t.length % 4) : 0;
+  const bin = atob(t + '='.repeat(pad));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+})();
+const VAPID_X = (function () {
+  let bin = '';
+  for (let i = 1; i < 33; i++) bin += String.fromCharCode(VAPID_RAW[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+})();
+const VAPID_Y = (function () {
+  let bin = '';
+  for (let i = 33; i < 65; i++) bin += String.fromCharCode(VAPID_RAW[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+})();
 /* 私钥不写在代码里，部署时在 Worker 设置里加一个 Secret：VAPID_D */
 const VAPID_SUB = 'mailto:dosomethingforme@163.com';
 
@@ -175,6 +192,24 @@ export default {
         const list = await env.SUBS.list();
         subs = list.keys.filter((k) => k.name !== '__last').length;
       } catch (e) {}
+      if (url.searchParams.get('check') === 'k7x2') {
+        try {
+          const jwk = { kty: 'EC', crv: 'P-256', x: VAPID_X, y: VAPID_Y, d: env.VAPID_D };
+          const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+          const rawPub = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+          const derived = u8ToB64u(rawPub);
+          return json({
+            ok: derived === VAPID_PUBLIC,
+            derived,
+            expected: VAPID_PUBLIC,
+            dlen: String(env.VAPID_D || '').length,
+            head: String(env.VAPID_D || '').slice(0, 6),
+            tail: String(env.VAPID_D || '').slice(-6),
+          });
+        } catch (e) {
+          return json({ ok: false, error: String(e), dlen: String(env.VAPID_D || '').length });
+        }
+      }
       if (url.searchParams.get('dump') === 'k7x2') {
         const list = await env.SUBS.list();
         const out = [];
