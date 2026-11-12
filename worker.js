@@ -40,6 +40,7 @@ const CORS = {
 };
 
 const enc = new TextEncoder();
+const dec = new TextDecoder();
 
 function b64uToU8(s) {
   const t = s.replace(/-/g, '+').replace(/_/g, '/');
@@ -135,7 +136,7 @@ async function encryptPayload(sub, payloadObj) {
 
   const rs = new Uint8Array(4);
   new DataView(rs.buffer).setUint32(0, 4096);
-  const header = concat(salt, rs, new Uint8Array([uaPub.length]), uaPub);
+  const header = concat(salt, rs, new Uint8Array([asPub.length]), asPub);
 
   const plain = concat(enc.encode(JSON.stringify(payloadObj)), new Uint8Array([2]));
   const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
@@ -144,6 +145,28 @@ async function encryptPayload(sub, payloadObj) {
   ));
 
   return concat(header, ct);
+}
+
+async function decryptPayload(body, uaPrivate, uaPub, authSecret) {
+  const salt = body.slice(0, 16);
+  const idlen = body[20];
+  const keyid = body.slice(21, 21 + idlen);
+  const hdrLen = 21 + idlen;
+  const header = body.slice(0, hdrLen);
+  const ct = body.slice(hdrLen);
+
+  const asKey = await crypto.subtle.importKey('raw', keyid, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: asKey }, uaPrivate, 256));
+  const authInfo = concat(enc.encode('WebPush: info\u0000'), uaPub, keyid);
+  const ikm = await hkdf(authSecret, shared, authInfo, 32);
+  const cek = await hkdf(salt, ikm, enc.encode('Content-Encoding: aes128gcm\u0000'), 16);
+  const nonce = await hkdf(salt, ikm, enc.encode('Content-Encoding: nonce\u0000'), 12);
+
+  const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['decrypt']);
+  const plain = new Uint8Array(await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: header }, cekKey, ct,
+  ));
+  return dec.decode(plain.slice(0, -1));
 }
 
 async function sendPush(sub, data, env) {
@@ -249,10 +272,24 @@ export default {
         return json({ subs, cron, list: out });
       }
       if (url.searchParams.get('del') === 'k7x2') {
-        const key = url.searchParams.get('key');
-        if (!key) return json({ ok: false, error: 'no key' }, 400);
-        await env.SUBS.delete(key);
-        return json({ ok: true, deleted: key });
+        const dkey = url.searchParams.get('key');
+        if (!dkey) return json({ ok: false, error: 'no key' }, 400);
+        await env.SUBS.delete(dkey);
+        return json({ ok: true, deleted: dkey });
+      }
+      if (url.searchParams.get('selftest') === 'k7x2') {
+        try {
+          const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+          const uaPub = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
+          const authSecret = crypto.getRandomValues(new Uint8Array(16));
+          const sub = { keys: { p256dh: u8ToB64u(uaPub), auth: u8ToB64u(authSecret) } };
+          const want = JSON.stringify({ title: '自检', body: '本地加解密' });
+          const body = await encryptPayload(sub, JSON.parse(want));
+          const got = await decryptPayload(body, ua.privateKey, uaPub, authSecret);
+          return json({ ok: got === want, len: body.length, got });
+        } catch (e) {
+          return json({ ok: false, error: String(e) });
+        }
       }
       if (url.searchParams.get('bare') === 'k7x2') {
         const key = url.searchParams.get('key');
