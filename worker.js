@@ -266,6 +266,8 @@ export default {
             endpoint: rec && rec.sub ? rec.sub.endpoint : null,
             updated: rec ? rec.updated : null,
             items: rec && Array.isArray(rec.items) ? rec.items.length : 0,
+            p8: rec && rec.sub && rec.sub.keys ? String(rec.sub.keys.p256dh).slice(0, 8) : null,
+            a8: rec && rec.sub && rec.sub.keys ? String(rec.sub.keys.auth).slice(0, 8) : null,
             first: rec && Array.isArray(rec.items) && rec.items.length ? rec.items[0] : null,
           });
         }

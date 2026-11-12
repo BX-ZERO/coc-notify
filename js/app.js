@@ -703,7 +703,15 @@
     });
   }
 
-  /* 长按铃铛：退订后重建，用于清理设备端已经作废的订阅 */
+  /* 长按铃铛：显示本机订阅密钥前 8 位，用于和服务端记录比对 */
+  function showSubKeys() {
+    currentSub().then(function (sub) {
+      if (!sub) { toast('本机没有订阅', 8000); return; }
+      var j = sub.toJSON();
+      toast('P ' + String(j.keys.p256dh).slice(0, 8) + ' / A ' + String(j.keys.auth).slice(0, 8), 20000);
+    });
+  }
+
   var bellTimer = null;
   var bellLong = false;
   var bellBtn = document.getElementById('btn-bell');
@@ -713,8 +721,7 @@
       bellTimer = setTimeout(function () {
         bellTimer = null;
         bellLong = true;
-        toast('正在重建订阅…', 4000);
-        enablePush();
+        showSubKeys();
       }, 700);
     });
   });
