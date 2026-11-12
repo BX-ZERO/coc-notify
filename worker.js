@@ -381,10 +381,7 @@ export default {
     } catch (e) {
       mark = null;
     }
-    if (!mark || nowMs - (mark.at || 0) > 1800000) {
-      const n = list.keys.filter((k) => k.name !== '__last' && k.name !== '__vk').length;
-      await env.SUBS.put('__last', JSON.stringify({ at: nowMs, subs: n }));
-    }
+    let lastPush = mark && mark.lastPush ? mark.lastPush : null;
 
     for (const k of list.keys) {
       if (k.name === '__last' || k.name === '__vk') continue;
@@ -394,23 +391,37 @@ export default {
       const due = rec.items.filter((it) => it.at <= now + 20);
       if (!due.length) continue;
 
-      let status = 0;
+      let dead = false;
+      let allOk = true;
+      let lastStatus = 0;
       for (const item of due) {
-        status = await sendPush(rec.sub, {
+        const st = await sendPush(rec.sub, {
           title: item.title,
           body: item.body || '',
           tag: item.id,
           url: '/',
         }, env);
+        lastStatus = st;
+        if (st === 404 || st === 410) { dead = true; break; }
+        if (st < 200 || st >= 300) allOk = false;
       }
+      lastPush = { at: nowMs, title: due[0].title, n: due.length, status: lastStatus };
 
-      if (status === 404 || status === 410) {
+      if (dead) {
         await env.SUBS.delete(k.name);
         continue;
       }
 
-      rec.items = rec.items.filter((it) => it.at > now + 20);
-      await env.SUBS.put(k.name, JSON.stringify(rec));
+      if (allOk) {
+        rec.items = rec.items.filter((it) => it.at > now + 20);
+        await env.SUBS.put(k.name, JSON.stringify(rec));
+      }
+      // 失败时不删，下一轮继续重试，宁可重复也不要漏
+    }
+
+    if (!mark || nowMs - (mark.at || 0) > 1800000 || (lastPush && lastPush.at === nowMs)) {
+      const n = list.keys.filter((k) => k.name !== '__last' && k.name !== '__vk').length;
+      await env.SUBS.put('__last', JSON.stringify({ at: nowMs, subs: n, lastPush: lastPush }));
     }
   },
 };
