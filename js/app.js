@@ -678,8 +678,11 @@
       if (perm !== 'granted') throw new Error('没有拿到通知权限，去 设置 → 通知 里打开');
       return navigator.serviceWorker.register('sw.js');
     }).then(function (reg) {
+      /* 旧的订阅可能是设备端已经作废的僵尸对象，先退订再重建 */
       return reg.pushManager.getSubscription().then(function (sub) {
-        if (sub) return sub;
+        if (!sub) return null;
+        return sub.unsubscribe().catch(function () {}).then(function () { return null; });
+      }).then(function () {
         return reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: b64uToU8(VAPID_PUBLIC)
@@ -700,7 +703,29 @@
     });
   }
 
-  document.getElementById('btn-bell').addEventListener('click', function () {
+  /* 长按铃铛：退订后重建，用于清理设备端已经作废的订阅 */
+  var bellTimer = null;
+  var bellLong = false;
+  var bellBtn = document.getElementById('btn-bell');
+  ['touchstart', 'mousedown'].forEach(function (ev) {
+    bellBtn.addEventListener(ev, function () {
+      bellLong = false;
+      bellTimer = setTimeout(function () {
+        bellTimer = null;
+        bellLong = true;
+        toast('正在重建订阅…', 4000);
+        enablePush();
+      }, 700);
+    });
+  });
+  ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach(function (ev) {
+    bellBtn.addEventListener(ev, function () {
+      if (bellTimer) { clearTimeout(bellTimer); bellTimer = null; }
+    });
+  });
+
+  bellBtn.addEventListener('click', function () {
+    if (bellLong) { bellLong = false; return; }
     var btn = document.getElementById('btn-bell');
     if (btn.getAttribute('data-on') === '1') {
       toast('正在同步…');
