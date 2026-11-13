@@ -407,15 +407,33 @@
   }
 
   function doImport(text) {
+    var rec;
     try {
-      parseImport(text);
-      closeModal();
-      el.input.value = '';
-      render();
+      rec = parseImport(text);
     } catch (e) {
       el.msg.textContent = e.message;
       el.msg.className = 'msg';
+      return;
     }
+    closeModal();
+    el.input.value = '';
+    render();
+    afterImport(rec);
+  }
+
+  /* 导入完立刻同步一次，并明确告诉用户传上去了没有 */
+  function afterImport(rec) {
+    if (!rec) return;
+    var n = (rec.items || []).length;
+    if (!pushUrl()) {
+      toast('已导入 ' + n + ' 项', 3000);
+      return;
+    }
+    toast('正在同步 ' + n + ' 项…', 2500);
+    syncPush(true).then(function (r) {
+      if (r && r.ok) toast('已同步 ' + n + ' 项', 3000);
+      else toast('同步失败：' + ((r && r.msg) || '点铃铛重试'), 6000);
+    });
   }
 
   document.getElementById('btn-import').addEventListener('click', openModal);
@@ -677,13 +695,20 @@
   /* 同步时连订阅的密钥一起上传：设备重装后 endpoint 变了而 KV 里还留着旧密钥，
      服务器按旧密钥加密，手机解不开，通知会被系统直接丢掉 */
   function syncPush(force) {
-    if (!pushUrl()) return Promise.resolve();
-    if (!force && Date.now() - lastSync < 60000) return Promise.resolve();
+    if (!pushUrl()) return Promise.resolve({ ok: false, msg: '还没有配置推送地址' });
+    if (!force && Date.now() - lastSync < 60000) {
+      return Promise.resolve({ ok: true, skipped: true, n: 0 });
+    }
     return currentSub().then(function (sub) {
-      if (!sub) return null;
+      if (!sub) return { ok: false, msg: '这台设备还没有订阅' };
       lastSync = Date.now();
-      return api('/sub', { subscription: sub.toJSON(), items: pushItems() });
-    }).catch(function () {});
+      var items = pushItems();
+      return api('/sub', { subscription: sub.toJSON(), items: items }).then(function (res) {
+        return { ok: !(res && res.ok === false), n: items.length };
+      });
+    }).catch(function (e) {
+      return { ok: false, msg: (e && e.message) || '同步失败' };
+    });
   }
 
   function enablePush() {
