@@ -10,6 +10,14 @@ _dark.html
 _p2/
 _p3/
 _profile/
+_pb/
+_bd.html
+_pm.html
+_tst.html
+_click.html
+_m.html
+_v.html
+_g.png
 
 # 部署用的本地文件，不进公开仓库
 deploy.js
