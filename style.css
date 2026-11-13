@@ -499,6 +499,47 @@ button.ghost:hover { color: var(--text); background: var(--th); }
   to { opacity: 1; transform: none; }
 }
 
+/* ---------- 加速道具 ---------- */
+
+.boosts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 13px;
+  margin-top: -2px;
+}
+.boost {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--note);
+  border: 1px solid var(--note-bd);
+  color: var(--note-tx);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.boost i {
+  font-style: normal;
+  opacity: 0.72;
+}
+
+/* ---------- 空分类 ---------- */
+
+.group-empty .ghead {
+  color: var(--muted);
+}
+.group-empty .ghead .idx {
+  color: var(--muted);
+  opacity: 0.55;
+}
+.gempty {
+  padding: 7px 14px 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 /* ---------- 移动端 ---------- */
 
 @media (max-width: 480px) {

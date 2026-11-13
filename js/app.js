@@ -271,6 +271,46 @@
     }).join('');
   }
 
+  /* 药水与加速道具的剩余时间。boosts 里存的是导出那一刻的剩余秒数，
+     所以要减去从导出到现在过去的时间 */
+  var BOOST_NAMES = [
+    ['builder_boost', '建筑工人药水'],
+    ['builder_consumable', '工人大餐'],
+    ['lab_boost', '研究药水'],
+    ['lab_consumable', '研究浓汤'],
+    ['pet_boost', '宠物药水'],
+    ['clocktower_boost', '时光钟楼']
+  ];
+
+  function boostText(sec) {
+    if (sec >= 86400) {
+      var d = Math.floor(sec / 86400);
+      var h = Math.floor((sec % 86400) / 3600);
+      return d + '天' + (h ? ' ' + h + '时' : '');
+    }
+    if (sec >= 3600) {
+      var hh = Math.floor(sec / 3600);
+      var mm = Math.floor((sec % 3600) / 60);
+      return hh + '时' + (mm ? ' ' + mm + '分' : '');
+    }
+    return Math.max(1, Math.floor(sec / 60)) + '分钟';
+  }
+
+  function boostRow(acct, now) {
+    var data = acct.data || {};
+    var b = data.boosts || {};
+    var ts = num(data.timestamp) || now;
+    var parts = [];
+    BOOST_NAMES.forEach(function (p) {
+      var left = num(b[p[0]]) - (now - ts);
+      if (left > 60) {
+        parts.push('<span class="boost"><i>' + p[1] + '</i>' + boostText(left) + '</span>');
+      }
+    });
+    if (!parts.length) return '';
+    return '<div class="boosts">' + parts.join('') + '</div>';
+  }
+
   function renderBoard(acct) {
     var now = Math.floor(Date.now() / 1000);
     var items = acct.items || [];
@@ -289,6 +329,7 @@
       '<div class="stat"><div class="k">数据导出</div><div class="v">' + clockText(num(acct.data.timestamp)) + '</div></div>' +
       '</div>' +
       '<div class="meta">当前 <b>' + whenText(now) + '</b></div>' +
+      boostRow(acct, now) +
       '</div>';
 
     var groups = {};
@@ -296,14 +337,18 @@
 
     var n = 0;
     CATEGORIES.forEach(function (cat) {
-      var list = groups[cat.key];
-      if (!list || !list.length) return;
+      var list = groups[cat.key] || [];
       n += 1;
-      html += '<div class="group"><div class="ghead">' +
+      html += '<div class="group' + (list.length ? '' : ' group-empty') + '">' +
+        '<div class="ghead">' +
         '<span class="idx">' + (n < 10 ? '0' + n : n) + '</span>' +
         '<span>' + cat.label + '</span>' +
-        '<span class="n">' + list.length + ' 项</span></div>';
-      list.forEach(function (i) { html += cardHtml(i, now); });
+        '<span class="n">' + (list.length ? list.length + ' 项' : '—') + '</span></div>';
+      if (list.length) {
+        list.forEach(function (i) { html += cardHtml(i, now); });
+      } else {
+        html += '<div class="gempty">没有在升级的项</div>';
+      }
       html += '</div>';
     });
 
