@@ -22,6 +22,15 @@
     { key: 'traps2',         label: '夜世界陷阱',  icon: '🌙', kind: 'night' }
   ];
 
+  /* 按升级途径分组：同一个工人或实验室带的项目放在一起 */
+  var GROUPS = [
+    { label: '建筑工人', keys: ['buildings', 'heroes', 'traps', 'guardians'] },
+    { label: '实验室', keys: ['units', 'spells', 'siege_machines'] },
+    { label: '战宠小屋', keys: ['pets'] },
+    { label: '建筑大师', keys: ['buildings2', 'heroes2', 'traps2'] },
+    { label: '星空实验室', keys: ['units2'] }
+  ];
+
   var state = { accounts: {}, order: [], current: null };
   var tickTimer = null;
 
@@ -332,17 +341,22 @@
       boostRow(acct, now) +
       '</div>';
 
-    var groups = {};
-    live.forEach(function (i) { (groups[i.key] = groups[i.key] || []).push(i); });
+    var buckets = {};
+    GROUPS.forEach(function (g) { buckets[g.label] = []; });
+    live.forEach(function (i) {
+      GROUPS.forEach(function (g) {
+        if (g.keys.indexOf(i.key) >= 0) buckets[g.label].push(i);
+      });
+    });
 
     var n = 0;
-    CATEGORIES.forEach(function (cat) {
-      var list = groups[cat.key] || [];
+    GROUPS.forEach(function (g) {
+      var list = buckets[g.label];
       n += 1;
       html += '<div class="group' + (list.length ? '' : ' group-empty') + '">' +
         '<div class="ghead">' +
         '<span class="idx">' + (n < 10 ? '0' + n : n) + '</span>' +
-        '<span>' + cat.label + '</span>' +
+        '<span>' + g.label + '</span>' +
         '<span class="n">' + (list.length ? list.length + ' 项' : '—') + '</span></div>';
       if (list.length) {
         list.forEach(function (i) { html += cardHtml(i, now); });
