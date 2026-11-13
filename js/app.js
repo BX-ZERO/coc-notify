@@ -722,7 +722,7 @@
     });
   }
 
-  function api(path, payload) {
+  function request(path, payload) {
     var url = pushUrl();
     if (!url) return Promise.reject(new Error('还没有配置推送地址'));
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -740,6 +740,17 @@
       if (err && err.name === 'AbortError') throw new Error('连接超时');
       if (err instanceof TypeError) throw new Error('连不上服务器');
       throw err;
+    });
+  }
+
+  /* workers.dev 在国内时通时不通，失败之后隔一会儿再试两次 */
+  function api(path, payload, left) {
+    var retries = left === undefined ? 2 : left;
+    return request(path, payload).catch(function (e) {
+      if (retries <= 0) throw e;
+      return new Promise(function (r) { setTimeout(r, 1300); }).then(function () {
+        return api(path, payload, retries - 1);
+      });
     });
   }
 
