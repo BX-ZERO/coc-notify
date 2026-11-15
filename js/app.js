@@ -158,6 +158,21 @@
     }
     if (!data || typeof data !== 'object') throw new Error('数据为空');
 
+    // 本应用「备份数据」导出的整包文件，直接还原
+    if (data.accounts && typeof data.accounts === 'object') {
+      var keys = Object.keys(data.accounts);
+      if (!keys.length) throw new Error('备份文件里没有账号');
+      var order = Array.isArray(data.order) ? data.order.filter(function (k) {
+        return data.accounts[k];
+      }) : [];
+      keys.forEach(function (k) { if (order.indexOf(k) < 0) order.push(k); });
+      state.accounts = data.accounts;
+      state.order = order;
+      state.current = data.accounts[data.current] ? data.current : order[0];
+      if (persist !== false) save();
+      return state.accounts[state.current];
+    }
+
     var tag = data.tag || data.playerTag || data.player_tag;
     if (!tag) throw new Error('找不到玩家标签，可能不是玩家数据');
     tag = String(tag).toUpperCase();
