@@ -540,6 +540,24 @@ button.ghost:hover { color: var(--text); background: var(--th); }
   color: var(--muted);
 }
 
+/* ---------- 署名 ---------- */
+
+.credit {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 2px;
+}
+.credit a {
+  display: block;
+  line-height: 0;
+}
+.credit img {
+  display: block;
+  width: 121px;
+  height: 20px;
+  border: 0;
+}
+
 /* ---------- 移动端 ---------- */
 
 @media (max-width: 480px) {

@@ -71,3 +71,9 @@ iOS 需要 16.4 以上，并且必须先「添加到主屏幕」，从主屏幕�
 ## 致谢
 
 功能设计参考了社区里的「部落小工具」，本项目的实现是独立重写的。
+
+---
+
+<p align="center">
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="img/dsh-badge.png" width="121" height="20" alt="powered by dsh"></a>
+</p>
