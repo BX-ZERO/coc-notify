@@ -24,11 +24,11 @@
 
   /* 按升级途径分组：同一个工人或实验室带的项目放在一起 */
   var GROUPS = [
-    { label: '建筑工人', keys: ['buildings', 'heroes', 'traps', 'guardians'] },
-    { label: '实验室', keys: ['units', 'spells', 'siege_machines'] },
-    { label: '战宠小屋', keys: ['pets'] },
-    { label: '建筑大师', keys: ['buildings2', 'heroes2', 'traps2'] },
-    { label: '星空实验室', keys: ['units2'] }
+    { label: '建筑工人', keys: ['buildings', 'heroes', 'traps', 'guardians'], slots: 'builders' },
+    { label: '实验室', keys: ['units', 'spells', 'siege_machines'], slots: 1 },
+    { label: '战宠小屋', keys: ['pets'], slots: 1 },
+    { label: '建筑大师', keys: ['buildings2', 'heroes2', 'traps2'], slots: 3 },
+    { label: '星空实验室', keys: ['units2'], slots: 1 }
   ];
 
   var state = { accounts: {}, order: [], current: null };
@@ -209,10 +209,11 @@
                 key: cat.key, label: cat.label, icon: cat.icon, kind: cat.kind,
                 id: num(mod.data), lvl: num(mod.lvl), timer: num(mod.timer),
                 helperTimer: num(mod.helper_timer) || num(raw.helper_timer),
+                helperOn: mod.helper_recurrent === true || raw.helper_recurrent === true,
                 name: nameOf(num(mod.data)) + ' 精制'
               };
               it.finish = finishAt(it, data);
-              it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : 0;
+              it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : (it.helperOn ? it.finish : 0);
               items.push(it);
             });
           });
@@ -222,10 +223,11 @@
           var it = {
             key: cat.key, label: cat.label, icon: cat.icon, kind: cat.kind,
             id: num(raw.data), lvl: num(raw.lvl), timer: num(raw.timer),
-            helperTimer: num(raw.helper_timer), name: nameOf(num(raw.data))
+            helperTimer: num(raw.helper_timer), name: nameOf(num(raw.data)),
+            helperOn: raw.helper_recurrent === true
           };
           it.finish = finishAt(it, data);
-          it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : 0;
+          it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : (it.helperOn ? it.finish : 0);
           items.push(it);
         }
       });
@@ -394,19 +396,27 @@
       });
     });
 
-    // 建筑工人数量＝工人小屋数量，用来在分组头上显示「在建/可用」
+    // 主世界工人数 = 工人小屋数；夜世界小博控制室升到 5 级后主世界多一个
     var builderSlots = 0;
     (acct.data.buildings || []).forEach(function (b) {
       if (num(b.data) === 1000015) builderSlots += num(b.cnt) || 1;
     });
+    (acct.data.buildings2 || []).forEach(function (b) {
+      if (num(b.data) === 1000065 && num(b.lvl) >= 5) builderSlots += 1;
+    });
+
 
     var n = 0;
     GROUPS.forEach(function (g) {
       var list = buckets[g.label];
       n += 1;
       var count;
-      if (g.label === '建筑工人' && builderSlots > 0) {
-        count = list.length + ' / ' + builderSlots;
+      if (g.slots === 'builders' && builderSlots > 0) {
+        count = list.length + ' / ' + Math.max(builderSlots, 1);
+      } else if (typeof g.slots === 'number') {
+        count = list.length + ' / ' + g.slots;
+      } else if (g.slots === 'dynamic') {
+        count = list.length ? list.length + ' / ' + list.length : '—';
       } else {
         count = list.length ? list.length + ' 项' : '—';
       }
@@ -463,11 +473,11 @@
     else if (remain <= 600) cls += ' soon';
     var lvl = item.lvl ? ('Lv.' + item.lvl + ' <span class="arrow">→</span> Lv.' + (item.lvl + 1)) : '';
     var helperMark = '';
-    if (item.helperTimer > 0) {
+    if (item.helperOn || item.helperTimer > 0) {
       var hid = item.kind === 'lab' ? '93000001' : '93000000';
       helperMark = '<div class="card-helper" data-helper="' + item.helperEnd + '">' +
         '<img src="img/' + hid + '.webp" alt="">' +
-        '<span>' + boostText(item.helperTimer) + '</span></div>';
+        '<span>' + (item.helperTimer > 0 ? boostText(item.helperTimer) : '加速中') + '</span></div>';
     }
     return '<div class="' + cls + '">' +
       '<div class="card-icon"><img class="card-img" src="img/' + item.id + '.webp" alt="">' +
