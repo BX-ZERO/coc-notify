@@ -598,6 +598,17 @@ button.ghost:hover { color: var(--text); background: var(--th); }
   object-fit: contain;
   border-radius: 2px;
 }
+.card-helper em {
+  font-style: normal;
+  color: var(--text);
+  opacity: .72;
+}
+.card-helper span {
+  font-variant-numeric: tabular-nums;
+}
+.card-helper .state {
+  color: var(--accent);
+}
 .helpers {
   display: flex;
   flex-wrap: wrap;

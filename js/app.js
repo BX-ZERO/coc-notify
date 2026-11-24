@@ -360,7 +360,8 @@
       var cls = cd > 0 ? ' helper-cooling' : '';
       parts.push('<span class="helper-chip' + cls + '">' +
         '<img src="img/' + id + '.webp" alt="" onerror="this.style.display=\'none\'">' +
-        '<i>' + name + '</i>' + (cd > 0 ? boostText(cd) : '可用') + '</span>');
+        '<i>' + name + '</i><b data-cool="' + (cd > 0 ? (ts + num(h.helper_cooldown)) : 0) + '">' +
+        (cd > 0 ? '冷却中 ' + boostText(cd) : '可用') + '</b></span>');
     });
     if (!parts.length) return '';
     return '<div class="helpers">' + parts.join('') + '</div>';
@@ -475,9 +476,11 @@
     var helperMark = '';
     if (item.helperOn || item.helperTimer > 0) {
       var hid = item.kind === 'lab' ? '93000001' : '93000000';
+      var hname = HELPER_NAMES[hid] || '助手';
       helperMark = '<div class="card-helper" data-helper="' + item.helperEnd + '">' +
         '<img src="img/' + hid + '.webp" alt="">' +
-        '<span>' + (item.helperTimer > 0 ? boostText(item.helperTimer) : '加速中') + '</span></div>';
+        '<em>' + hname + '</em>' +
+        '<span class="state">' + (item.helperTimer > 0 ? boostText(item.helperTimer) : '加速中') + '</span></div>';
     }
     return '<div class="' + cls + '">' +
       '<div class="card-icon"><img class="card-img" src="img/' + item.id + '.webp" alt="">' +
@@ -512,6 +515,13 @@
         var left = num(hs[j].getAttribute('data-helper')) - now;
         var sp = hs[j].querySelector('span');
         if (sp) sp.textContent = left > 0 ? boostText(left) : '已结束';
+      }
+      var cs = el.board.querySelectorAll('[data-cool]');
+      for (var k = 0; k < cs.length; k++) {
+        var cd = num(cs[k].getAttribute('data-cool')) - now;
+        cs[k].textContent = cd > 0 ? '冷却中 ' + boostText(cd) : '可用';
+        var chip = cs[k].parentNode;
+        if (chip) chip.className = 'helper-chip' + (cd > 0 ? ' helper-cooling' : '');
       }
     }, 1000);
   }
