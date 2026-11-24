@@ -544,8 +544,16 @@ button.ghost:hover { color: var(--text); background: var(--th); }
 
 .credit {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 20px 0 2px;
+}
+.credit .ver {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
 }
 .credit a {
   display: block;
@@ -572,3 +580,46 @@ button.ghost:hover { color: var(--text); background: var(--th); }
   .card-img { width: 28px; height: 28px; }
   .card-remain { font-size: 14px; }
 }
+
+/* 助手标记与帮手状态 */
+.card-helper {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  margin-bottom: 1px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.card-helper img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+.helpers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 13px;
+}
+.helper-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 3px 4px;
+  border: 1px solid var(--note-bd);
+  border-radius: 4px;
+  background: var(--note);
+  color: var(--note-tx);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.helper-chip img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+.helper-chip i { font-style: normal; }
+.helper-chip.helper-cooling { opacity: .68; }

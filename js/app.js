@@ -212,6 +212,7 @@
                 name: nameOf(num(mod.data)) + ' 精制'
               };
               it.finish = finishAt(it, data);
+              it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : 0;
               items.push(it);
             });
           });
@@ -224,6 +225,7 @@
             helperTimer: num(raw.helper_timer), name: nameOf(num(raw.data))
           };
           it.finish = finishAt(it, data);
+          it.helperEnd = it.helperTimer > 0 ? Math.min(num(data.timestamp) + it.helperTimer, it.finish) : 0;
           items.push(it);
         }
       });
@@ -335,6 +337,33 @@
     return '<div class="boosts">' + parts.join('') + '</div>';
   }
 
+  var HELPER_NAMES = {
+    93000000: '工人助手',
+    93000001: '实验室助手',
+    93000002: '炼金术师',
+    93000003: '探矿者'
+  };
+
+  /* 帮手小屋里每个助手的冷却状态 */
+  function helperRow(acct, now) {
+    var data = acct.data || {};
+    var list = Array.isArray(data.helpers) ? data.helpers : [];
+    var ts = num(data.timestamp) || now;
+    var parts = [];
+    list.forEach(function (h) {
+      var id = num(h.data);
+      var name = HELPER_NAMES[id];
+      if (!name) return;
+      var cd = num(h.helper_cooldown) - (now - ts);
+      var cls = cd > 0 ? ' helper-cooling' : '';
+      parts.push('<span class="helper-chip' + cls + '">' +
+        '<img src="img/' + id + '.webp" alt="" onerror="this.style.display=\'none\'">' +
+        '<i>' + name + '</i>' + (cd > 0 ? boostText(cd) : '可用') + '</span>');
+    });
+    if (!parts.length) return '';
+    return '<div class="helpers">' + parts.join('') + '</div>';
+  }
+
   function renderBoard(acct) {
     var now = Math.floor(Date.now() / 1000);
     var items = acct.items || [];
@@ -354,6 +383,7 @@
       '</div>' +
       '<div class="meta">当前 <b>' + whenText(now) + '</b></div>' +
       boostRow(acct, now) +
+      helperRow(acct, now) +
       '</div>';
 
     var buckets = {};
@@ -364,15 +394,27 @@
       });
     });
 
+    // 建筑工人数量＝工人小屋数量，用来在分组头上显示「在建/可用」
+    var builderSlots = 0;
+    (acct.data.buildings || []).forEach(function (b) {
+      if (num(b.data) === 1000015) builderSlots += num(b.cnt) || 1;
+    });
+
     var n = 0;
     GROUPS.forEach(function (g) {
       var list = buckets[g.label];
       n += 1;
+      var count;
+      if (g.label === '建筑工人' && builderSlots > 0) {
+        count = list.length + ' / ' + builderSlots;
+      } else {
+        count = list.length ? list.length + ' 项' : '—';
+      }
       html += '<div class="group' + (list.length ? '' : ' group-empty') + '">' +
         '<div class="ghead">' +
         '<span class="idx">' + (n < 10 ? '0' + n : n) + '</span>' +
         '<span>' + g.label + '</span>' +
-        '<span class="n">' + (list.length ? list.length + ' 项' : '—') + '</span></div>';
+        '<span class="n">' + count + '</span></div>';
       if (list.length) {
         list.forEach(function (i) { html += cardHtml(i, now); });
       } else {
@@ -420,12 +462,20 @@
     if (remain <= 0) cls += ' done';
     else if (remain <= 600) cls += ' soon';
     var lvl = item.lvl ? ('Lv.' + item.lvl + ' <span class="arrow">→</span> Lv.' + (item.lvl + 1)) : '';
+    var helperMark = '';
+    if (item.helperTimer > 0) {
+      var hid = item.kind === 'lab' ? '93000001' : '93000000';
+      helperMark = '<div class="card-helper" data-helper="' + item.helperEnd + '">' +
+        '<img src="img/' + hid + '.webp" alt="">' +
+        '<span>' + boostText(item.helperTimer) + '</span></div>';
+    }
     return '<div class="' + cls + '">' +
       '<div class="card-icon"><img class="card-img" src="img/' + item.id + '.webp" alt="">' +
       '<span class="card-emoji">' + item.icon + '</span></div>' +
       '<div class="card-main"><div class="card-name">' + escapeHtml(item.name) + '</div>' +
       (lvl ? '<div class="card-lvl">' + lvl + '</div>' : '') + '</div>' +
-      '<div class="card-time"><div class="card-remain ' + toneOf(remain) + '" data-finish="' + item.finish + '">' +
+      '<div class="card-time">' + helperMark +
+      '<div class="card-remain ' + toneOf(remain) + '" data-finish="' + item.finish + '">' +
       remainingText(remain) + '</div><div class="card-when">' + whenText(item.finish) + '</div></div>' +
       '</div>';
   }
@@ -442,11 +492,16 @@
     tickTimer = setInterval(function () {
       var now = Math.floor(Date.now() / 1000);
       var nodes = el.board.querySelectorAll('[data-finish]');
-      if (!nodes.length) return;
       for (var i = 0; i < nodes.length; i++) {
         var rem = num(nodes[i].getAttribute('data-finish')) - now;
         nodes[i].textContent = remainingText(rem);
         nodes[i].className = 'card-remain ' + toneOf(rem);
+      }
+      var hs = el.board.querySelectorAll('[data-helper]');
+      for (var j = 0; j < hs.length; j++) {
+        var left = num(hs[j].getAttribute('data-helper')) - now;
+        var sp = hs[j].querySelector('span');
+        if (sp) sp.textContent = left > 0 ? boostText(left) : '已结束';
       }
     }, 1000);
   }

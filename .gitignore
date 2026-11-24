@@ -23,3 +23,5 @@ _g.png
 deploy.js
 wrangler.toml
 
+_px/
+_p*/
